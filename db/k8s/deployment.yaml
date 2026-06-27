@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: casino-db
+  labels:
+    app: casino-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: casino-db
+  template:
+    metadata:
+      labels:
+        app: casino-db
+    spec:
+      containers:
+        - name: casino-db
+          image: 533267092848.dkr.ecr.us-east-1.amazonaws.com/casino-db:latest
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - configMapRef:
+                name: casino-config
+            - secretRef:
+                name: casino-secrets
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "250m"
+              memory: "128Mi"

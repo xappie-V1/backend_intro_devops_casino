@@ -1,0 +1,7 @@
+.github/
+.gitignore
+.env
+.env.example
+node_modules/
+
+README.MD
