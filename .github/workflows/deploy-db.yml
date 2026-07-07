@@ -12,15 +12,16 @@ on:
       - "db/k8s/**"
 
 env:
-  SERVICE_NAME: ${{ secrets.SERVICE_NAME }}
-  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
-  CONTAINER_NAME: ${{ secrets.CONTAINER_NAME }}
+  DB_SERVICE_NAME: ${{ secrets.DB_SERVICE_NAME }}
+  DB_ECR_REPOSITORY: ${{ secrets.DB_ECR_REPOSITORY }}
+  DB_CONTAINER_NAME: ${{ secrets.DB_CONTAINER_NAME }}
 
   AWS_REGION: ${{ secrets.AWS_REGION }}
   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
 
   EKS_CLUSTER: ${{ secrets.EKS_CLUSTER_NAME }}
-  IMAGE_URI: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}
+
+  DB_IMAGE_URI: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.DB_ECR_REPOSITORY }}
 
 jobs:
   build:
@@ -33,21 +34,21 @@ jobs:
         run: |
           docker build \
             --pull \
-            -t $SERVICE_NAME:latest \
+            -t $DB_SERVICE_NAME:latest \
             -f db/Dockerfile \
             db
       
       - name: Save Docker image
         run: |
           docker save \
-            -o $SERVICE_NAME.tar \
-            $SERVICE_NAME:latest
+            -o $DB_SERVICE_NAME.tar \
+            $DB_SERVICE_NAME:latest
 
       - name: Upload Docker image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.SERVICE_NAME }}-image
-          path: ${{ env.SERVICE_NAME }}.tar
+          name: ${{ env.DB_SERVICE_NAME }}-image
+          path: ${{ env.DB_SERVICE_NAME }}.tar
 
   deploy:
     needs: build
@@ -70,30 +71,27 @@ jobs:
       - name: Download Docker image
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.SERVICE_NAME }}-image
+          name: ${{ env.DB_SERVICE_NAME }}-image
 
       - name: Load Docker image
         run: |
           docker load \
-            -i $SERVICE_NAME.tar
+            -i $DB_SERVICE_NAME.tar
     
       - name: Tag image
         run: |
           docker tag \
-            $SERVICE_NAME:latest \
-            $IMAGE_URI:latest
+            $DB_SERVICE_NAME:latest \
+            $DB_IMAGE_URI:latest
 
           docker tag \
-            $SERVICE_NAME:latest \
-            $IMAGE_URI:${{ github.sha }}
+            $DB_SERVICE_NAME:latest \
+            $DB_IMAGE_URI:${{ github.sha }}
       
       - name: Push image
         run: |
-          docker push \
-          $IMAGE_URI:latest
-
-          docker push \
-          $IMAGE_URI:${{ github.sha }}
+            docker push $DB_IMAGE_URI:latest
+            docker push $DB_IMAGE_URI:${{ github.sha }}
 
       - name: Configure kubeconfig
         run: |
@@ -109,17 +107,17 @@ jobs:
 
       - name: Verify deployment
         run: |
-          kubectl get deployment
-          kubectl get deployment $SERVICE_NAME
-          kubectl describe deployment $SERVICE_NAME
+            kubectl get deployment
+            kubectl get deployment $DB_SERVICE_NAME
+            kubectl describe deployment $DB_SERVICE_NAME
 
       - name: Update Deployment
         run: |
-          kubectl set image deployment/$SERVICE_NAME $CONTAINER_NAME=$IMAGE_URI:${{ github.sha }}
+            kubectl set image deployment/$DB_SERVICE_NAME $DB_CONTAINER_NAME=$DB_IMAGE_URI:${{ github.sha }}
 
       - name: Wait Rollout
         run: |
-          kubectl rollout status deployment/$SERVICE_NAME \
+          kubectl rollout status deployment/$DB_SERVICE_NAME \
             --timeout=180s
           kubectl get nodes
           kubectl get deployments
